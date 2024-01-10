@@ -1,78 +1,57 @@
-#include "shell.h"
+#include <stdio.h>
+#include <stdlib.h>
 
-/**
- * _memset - Fills the first n bytes of the memory area pointed to by s with
- *           the constant byte b.
- * @s: Pointer to the memory area.
- * @b: The byte to fill the memory area with.
- * @n: The number of bytes to be filled.
- * Return: A pointer to the memory area s.
- */
-char *_memset(char *s, char b, unsigned int n)
-{
-    for (unsigned int i = 0; i < n; ++i)
-    {
-        s[i] = b;
-    }
-    return s;
-}
-
-/**
- * ffree - Frees an array of strings and the array itself.
- * @pp: The array of strings.
- */
-void ffree(char **pp)
-{
-    if (pp == NULL)
-    {
-        return;
+int main() {
+    // Initial size of the array
+    int initial_size = 5;
+    
+    // Allocate memory for the array
+    int *dynamic_array = (int *)malloc(initial_size * sizeof(int));
+    if (dynamic_array == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return 1;
     }
 
-    char **temp = pp;
-    while (*pp != NULL)
-    {
-        free(*pp++);
-    }
-    free(temp);
-}
-
-/**
- * _realloc - Reallocates the memory block pointed to by ptr.
- * @ptr: Pointer to the previous memory block.
- * @old_size: The old size of the memory block.
- * @new_size: The new size of the memory block.
- * Return: A pointer to the reallocated memory block.
- */
-void *_realloc(void *ptr, unsigned int old_size, unsigned int new_size)
-{
-    if (ptr == NULL)
-    {
-        return malloc(new_size);
+    // Initialize the array with some values
+    for (int i = 0; i < initial_size; i++) {
+        dynamic_array[i] = i * 2;
     }
 
-    if (new_size == 0)
-    {
-        free(ptr);
-        return NULL;
+    // Display the initial array
+    printf("Initial Array:\n");
+    for (int i = 0; i < initial_size; i++) {
+        printf("%d ", dynamic_array[i]);
+    }
+    printf("\n");
+
+    // New size of the array
+    int new_size = 8;
+
+    // Resize the array using realloc
+    int *resized_array = (int *)realloc(dynamic_array, new_size * sizeof(int));
+    if (resized_array == NULL) {
+        fprintf(stderr, "Memory reallocation failed\n");
+        free(dynamic_array);  // Free the original array before exiting
+        return 1;
     }
 
-    if (new_size == old_size)
-    {
-        return ptr;
+    // Update the pointer to the resized array
+    dynamic_array = resized_array;
+
+    // Initialize the new elements in the resized array
+    for (int i = initial_size; i < new_size; i++) {
+        dynamic_array[i] = i * 3;
     }
 
-    char *new_ptr = malloc(new_size);
-    if (new_ptr == NULL)
-    {
-        return NULL;
+    // Display the resized array
+    printf("Resized Array:\n");
+    for (int i = 0; i < new_size; i++) {
+        printf("%d ", dynamic_array[i]);
     }
+    printf("\n");
 
-    unsigned int min_size = old_size < new_size ? old_size : new_size;
-    while (min_size-- > 0)
-    {
-        new_ptr[min_size] = ((char *)ptr)[min_size];
-    }
+    // Free the dynamically allocated memory
+    free(dynamic_array);
 
-    free(ptr);
-    return new_ptr;
+    return 0;
 }

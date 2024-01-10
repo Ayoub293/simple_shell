@@ -25,22 +25,6 @@ int main(void) {
         // Remove newline character
         buffer[n - 1] = '\0';
 
-        // Check for exit built-in
-        if (strcmp(buffer, "exit") == 0) {
-            break;
-        }
-
-        // Check for env built-in
-        if (strcmp(buffer, "env") == 0) {
-            char **env = environ;
-            while (*env) {
-                write(STDOUT_FILENO, *env, strlen(*env));
-                write(STDOUT_FILENO, "\n", 1);
-                env++;
-            }
-            continue;
-        }
-
         // Fork a new process
         pid_t pid = fork();
 

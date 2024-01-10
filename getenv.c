@@ -1,87 +1,101 @@
-#include "shell.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <string.h>
+
+#define BUFFER_SIZE 1024
 
 /**
- * @brief Returns the string array copy of our environment.
- *
- * @param info Structure containing potential arguments.
- * @return String array of environment variables.
+ * custom_getline - read a line from standard input
+ * @buffer: pointer to the buffer where the line is stored
+ * @size: size of the buffer
+ * Return: number of characters read (including newline), 0 on EOF, -1 on error
  */
-char **get_environ(info_t *info) {
-    if (!info->environ || info->env_changed) {
-        info->environ = list_to_strings(info->env);
-        info->env_changed = 0;
-    }
-
-    return info->environ;
+ssize_t custom_getline(char *buffer, size_t size) {
+    // ... (same as before)
 }
 
 /**
- * @brief Removes an environment variable.
- *
- * @param info Structure containing potential arguments.
- * @param var The string env var property.
- * @return 1 on successful delete, 0 otherwise.
+ * split_line - split a line into an array of words
+ * @line: input line
+ * @argv: array of strings to store the words
+ * Return: number of words
  */
-int _unsetenv(info_t *info, char *var) {
-    list_t *node = info->env;
-    size_t index = 0;
-    char *p;
-
-    if (!node || !var)
-        return 0;
-
-    while (node) {
-        p = starts_with(node->str, var);
-        if (p && *p == '=') {
-            info->env_changed = delete_node_at_index(&(info->env), index);
-            index = 0;
-            node = info->env;
-            continue;
-        }
-        node = node->next;
-        index++;
-    }
-    return info->env_changed;
+int split_line(char *line, char **argv) {
+    // ... (same as before)
 }
 
 /**
- * @brief Initializes a new environment variable or modifies an existing one.
- *
- * @param info Structure containing potential arguments.
- * @param var The string env var property.
- * @param value The string env var value.
- * @return Always 0.
+ * execute_exit - handle the exit built-in command with arguments
+ * @argc: number of arguments
+ * @argv: array of arguments
+ * Return: 1 if exit should be executed, 0 otherwise
  */
-int _setenv(info_t *info, char *var, char *value) {
-    char *env_entry = NULL;
-    list_t *node;
-    char *p;
+int execute_exit(int argc, char **argv) {
+    // ... (same as before)
+}
 
-    if (!var || !value)
-        return 0;
-
-    env_entry = malloc(_strlen(var) + _strlen(value) + 2);
-    if (!env_entry)
-        return 1;
-
-    _strcpy(env_entry, var);
-    _strcat(env_entry, "=");
-    _strcat(env_entry, value);
-
-    node = info->env;
-    while (node) {
-        p = starts_with(node->str, var);
-        if (p && *p == '=') {
-            free(node->str);
-            node->str = env_entry;
-            info->env_changed = 1;
-            return 0;
-        }
-        node = node->next;
+/**
+ * execute_setenv - handle the setenv built-in command
+ * @argc: number of arguments
+ * @argv: array of arguments
+ * Return: 0 on success, -1 on failure
+ */
+int execute_setenv(int argc, char **argv) {
+    if (argc != 3) {
+        fprintf(stderr, "setenv: Incorrect number of arguments\n");
+        return -1;
     }
 
-    add_node_end(&(info->env), env_entry, 0);
-    free(env_entry);
-    info->env_changed = 1;
+    if (setenv(argv[1], argv[2], 1) != 0) {
+        perror("setenv");
+        return -1;
+    }
+
     return 0;
+}
+
+/**
+ * execute_unsetenv - handle the unsetenv built-in command
+ * @argc: number of arguments
+ * @argv: array of arguments
+ * Return: 0 on success, -1 on failure
+ */
+int execute_unsetenv(int argc, char **argv) {
+    if (argc != 2) {
+        fprintf(stderr, "unsetenv: Incorrect number of arguments\n");
+        return -1;
+    }
+
+    if (unsetenv(argv[1]) != 0) {
+        perror("unsetenv");
+        return -1;
+    }
+
+    return 0;
+}
+
+int main(void) {
+    // ... (same as before)
+
+    while (1) {
+        // ... (same as before)
+
+        // Check for setenv and unsetenv built-in commands
+        if (strcmp(argv[0], "setenv") == 0) {
+            execute_setenv(argc, argv);
+        } else if (strcmp(argv[0], "unsetenv") == 0) {
+            execute_unsetenv(argc, argv);
+        }
+
+        // ... (rest of the code remains the same)
+
+        // Free allocated memory for arguments
+        for (int i = 0; i < argc; i++) {
+            free(argv[i]);
+        }
+    }
+
+    return EXIT_SUCCESS;
 }

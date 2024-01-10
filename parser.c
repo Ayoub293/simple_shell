@@ -1,104 +1,42 @@
-#include "shell.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-/**
- * is_cmd - Determines if a file is an executable command.
- * @info: The info struct.
- * @path: Path to the file.
- *
- * Return: 1 if true, 0 otherwise.
- */
-int is_cmd(info_t *info, const char *path)
-{
-    struct stat st;
+#define MAX_TOKENS 100
+#define MAX_TOKEN_SIZE 50
 
-    (void)info;
-    return path && stat(path, &st) == 0 && S_ISREG(st.st_mode);
+void parse_command(char *input, char *tokens[], int *token_count) {
+    // Tokenize the input command based on spaces
+    char *token = strtok(input, " \t\n");
+    *token_count = 0;
+
+    while (token != NULL && *token_count < MAX_TOKENS) {
+        tokens[*token_count] = strdup(token);
+        (*token_count)++;
+        token = strtok(NULL, " \t\n");
+    }
 }
 
-/**
- * dup_chars - Duplicates characters.
- * @pathstr: The PATH string.
- * @start: Starting index.
- * @stop: Stopping index.
- *
- * Return: Newly allocated string containing the duplicated characters.
- */
-char *dup_chars(const char *pathstr, int start, int stop)
-{
-    char *buf = NULL;
-    int k = 0;
+int main() {
+    char input[MAX_TOKEN_SIZE];
+    char *tokens[MAX_TOKENS];
+    int token_count;
 
-    buf = malloc(stop - start + 1);
-    if (!buf)
-    {
-        perror("malloc");
-        exit(EXIT_FAILURE);
+    printf("Enter a command: ");
+    fgets(input, sizeof(input), stdin);
+
+    // Remove the newline character from the input
+    input[strcspn(input, "\n")] = '\0';
+
+    // Parse the command
+    parse_command(input, tokens, &token_count);
+
+    // Display the parsed tokens
+    printf("Parsed tokens:\n");
+    for (int i = 0; i < token_count; i++) {
+        printf("Token %d: %s\n", i + 1, tokens[i]);
+        free(tokens[i]);
     }
 
-    for (int i = start; i < stop; i++)
-    {
-        if (pathstr[i] != ':')
-        {
-            buf[k++] = pathstr[i];
-        }
-    }
-
-    buf[k] = '\0';
-    return buf;
-}
-
-/**
- * find_path - Finds this cmd in the PATH string.
- * @info: The info struct.
- * @pathstr: The PATH string.
- * @cmd: The cmd to find.
- *
- * Return: Full path of cmd if found, or NULL.
- */
-char *find_path(info_t *info, const char *pathstr, const char *cmd)
-{
-    if (!pathstr || !cmd)
-    {
-        return NULL;
-    }
-
-    if (_strlen(cmd) > 2 && starts_with(cmd, "./"))
-    {
-        return is_cmd(info, cmd) ? strdup(cmd) : NULL;
-    }
-
-    int i = 0, curr_pos = 0;
-    char *path = NULL;
-
-    while (1)
-    {
-        if (!pathstr[i] || pathstr[i] == ':')
-        {
-            path = dup_chars(pathstr, curr_pos, i);
-            if (!*path)
-            {
-                _strcat(path, cmd);
-            }
-            else
-            {
-                _strcat(path, "/");
-                _strcat(path, cmd);
-            }
-
-            if (is_cmd(info, path))
-            {
-                return path;
-            }
-
-            if (!pathstr[i])
-            {
-                break;
-            }
-
-            curr_pos = i;
-        }
-        i++;
-    }
-
-    return NULL;
+    return 0;
 }

@@ -1,77 +1,58 @@
-#include "shell.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 
-/**
- * @brief Initializes the info_t struct.
- *
- * @param info Pointer to the info_t struct.
- */
-void clear_info(info_t *info) {
-    info->arg = NULL;
-    info->argv = NULL;
-    info->path = NULL;
-    info->argc = 0;
+#define MAX_PATH_LEN 4096
+
+void update_pwd() {
+    char cwd[MAX_PATH_LEN];
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        setenv("PWD", cwd, 1);
+    } else {
+        perror("getcwd() error");
+        exit(EXIT_FAILURE);
+    }
 }
 
-/**
- * @brief Initializes the info_t struct with command line arguments.
- *
- * @param info Pointer to the info_t struct.
- * @param av Argument vector.
- */
-void set_info(info_t *info, char **av) {
-    int argc = 0;
+int main(int argc, char *argv[]) {
+    char *home_dir = getenv("HOME");
+    char *old_pwd = NULL;
 
-    info->fname = av[0];
-    
-    if (info->arg) {
-        info->argv = strtow(info->arg, " \t");
+    if (argc > 2) {
+        fprintf(stderr, "Usage: %s [DIRECTORY]\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
 
-        if (!info->argv) {
-            info->argv = malloc(sizeof(char *) * 2);
-
-            if (info->argv) {
-                info->argv[0] = _strdup(info->arg);
-                info->argv[1] = NULL;
-            }
+    if (argc == 1 || strcmp(argv[1], "~") == 0) {
+        if (chdir(home_dir) != 0) {
+            perror("chdir() error");
+            exit(EXIT_FAILURE);
+        }
+    } else if (strcmp(argv[1], "-") == 0) {
+        old_pwd = getenv("OLDPWD");
+        if (old_pwd == NULL) {
+            fprintf(stderr, "cd: OLDPWD not set\n");
+            exit(EXIT_FAILURE);
         }
 
-        for (argc = 0; info->argv && info->argv[argc]; argc++)
-            ;
-        
-        info->argc = argc;
-
-        replace_alias(info);
-        replace_vars(info);
+        if (chdir(old_pwd) != 0) {
+            perror("chdir() error");
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        if (chdir(argv[1]) != 0) {
+            perror("chdir() error");
+            exit(EXIT_FAILURE);
+        }
     }
-}
 
-/**
- * @brief Frees the allocated memory in the info_t struct.
- *
- * @param info Pointer to the info_t struct.
- * @param freeAll Flag indicating whether to free all fields.
- */
-void free_info(info_t *info, int freeAll) {
-    ffree(info->argv);
-    info->argv = NULL;
-    info->path = NULL;
+    update_pwd();
 
-    if (freeAll) {
-        if (!info->cmd_buf)
-            free(info->arg);
-
-        free_list(&(info->env));
-        free_list(&(info->history));
-        free_list(&(info->alias));
-
-        ffree(info->environ);
-        info->environ = NULL;
-
-        bfree((void **)info->cmd_buf);
-
-        if (info->readfd > 2)
-            close(info->readfd);
-
-        _putchar(BUF_FLUSH);
+    if (old_pwd != NULL) {
+        printf("%s\n", old_pwd);
+        free(old_pwd);
     }
+
+    return 0;
 }

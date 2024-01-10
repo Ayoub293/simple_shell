@@ -1,133 +1,86 @@
-#include "shell.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <string.h>
+
+#define BUFFER_SIZE 1024
 
 /**
- * @brief Converts a string to an integer.
- *
- * @param s The string to be converted.
- * @return 0 if no numbers in the string, converted number otherwise,
- *         -1 on error.
+ * custom_getline - read a line from standard input
+ * @buffer: pointer to the buffer where the line is stored
+ * @size: size of the buffer
+ * Return: number of characters read (including newline), 0 on EOF, -1 on error
  */
-int _erratoi(char *s)
-{
-    if (*s == '+')
-        s++;
+ssize_t custom_getline(char *buffer, size_t size) {
+    static char input_buffer[BUFFER_SIZE];
+    static size_t buffer_index = 0;
+    static ssize_t bytes_in_buffer = 0;
 
-    unsigned long int result = 0;
+    ssize_t total_bytes = 0;
 
-    for (int i = 0; s[i] != '\0'; i++)
-    {
-        if (s[i] >= '0' && s[i] <= '9')
-        {
-            result *= 10;
-            result += (s[i] - '0');
-            if (result > INT_MAX)
-                return -1;
+    while (1) {
+        // Refill the buffer if needed
+        if (buffer_index == bytes_in_buffer) {
+            bytes_in_buffer = read(STDIN_FILENO, input_buffer, BUFFER_SIZE);
+
+            // Check for EOF
+            if (bytes_in_buffer == 0) {
+                if (total_bytes == 0) {
+                    return 0; // EOF at the beginning
+                }
+                break;
+            } else if (bytes_in_buffer == -1) {
+                perror("read");
+                return -1; // Error
+            }
+
+            buffer_index = 0;
         }
-        else
-        {
-            return -1;
+
+        // Copy bytes from the input buffer to the user buffer
+        while (buffer_index < bytes_in_buffer && total_bytes < size - 1) {
+            if (input_buffer[buffer_index] == '\n') {
+                buffer[total_bytes++] = input_buffer[buffer_index++];
+                buffer[total_bytes] = '\0'; // Null-terminate the string
+                return total_bytes;
+            }
+
+            buffer[total_bytes++] = input_buffer[buffer_index++];
         }
     }
 
-    return result;
+    buffer[total_bytes] = '\0'; // Null-terminate the string
+    return total_bytes;
 }
 
-/**
- * @brief Prints an error message.
- *
- * @param info The parameter & return info struct.
- * @param estr String containing specified error type.
- */
-void print_error(info_t *info, const char *estr)
-{
-    _eputs(info->fname);
-    _eputs(": ");
-    print_d(info->line_count, STDERR_FILENO);
-    _eputs(": ");
-    _eputs(info->argv[0]);
-    _eputs(": ");
-    _eputs(estr);
-}
+int main(void) {
+    char buffer[BUFFER_SIZE];
 
-/**
- * @brief Prints a decimal (integer) number (base 10).
- *
- * @param input The input number.
- * @param fd The file descriptor to write to.
- * @return The number of characters printed.
- */
-int print_d(int input, int fd)
-{
-    int (*putchar_func)(char) = (fd == STDERR_FILENO) ? _eputchar : _putchar;
-    int count = 0;
-    unsigned int abs_value = (input < 0) ? -input : input;
-    unsigned int current = abs_value;
+    while (1) {
+        // Display prompt
+        write(STDOUT_FILENO, "$ ", 2);
 
-    if (input < 0)
-    {
-        putchar_func('-');
-        count++;
-    }
+        // Read command from the user using custom_getline
+        ssize_t n = custom_getline(buffer, BUFFER_SIZE);
 
-    for (int i = 1000000000; i > 1; i /= 10)
-    {
-        if (abs_value / i)
-        {
-            putchar_func('0' + current / i);
-            count++;
-        }
-        current %= i;
-    }
-
-    putchar_func('0' + current);
-    count++;
-
-    return count;
-}
-
-/**
- * @brief Converts a number to a string.
- *
- * @param num The number to convert.
- * @param base The base of the number.
- * @param flags Argument flags.
- * @return The string representation of the number.
- */
-char *convert_number(long int num, int base, int flags)
-{
-    static char buffer[50];
-    char *ptr = &buffer[49];
-    unsigned long n = (num < 0 && !(flags & CONVERT_UNSIGNED)) ? -num : num;
-
-    char *array = (flags & CONVERT_LOWERCASE) ? "0123456789abcdef" : "0123456789ABCDEF";
-
-    *ptr = '\0';
-
-    do
-    {
-        *--ptr = array[n % base];
-        n /= base;
-    } while (n != 0);
-
-    if (num < 0 && !(flags & CONVERT_UNSIGNED))
-        *--ptr = '-';
-
-    return ptr;
-}
-
-/**
- * @brief Replaces the first instance of '#' with '\0'.
- *
- * @param buf Address of the string to modify.
- */
-void remove_comments(char *buf)
-{
-    for (int i = 0; buf[i] != '\0'; i++)
-    {
-        if (buf[i] == '#' && (!i || buf[i - 1] == ' '))
-        {
-            buf[i] = '\0';
+        // Check for end of file (Ctrl+D)
+        if (n == 0) {
+            write(STDOUT_FILENO, "\n", 1);
             break;
         }
+
+        // Remove newline character
+        buffer[n - 1] = '\0';
+
+        // Check for exit built-in
+        if (strcmp(buffer, "exit") == 0) {
+            break;
+        }
+
+        // Fork a new process (rest of the code remains the same)
+        // ...
     }
+
+    return EXIT_SUCCESS;
 }

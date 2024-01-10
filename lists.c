@@ -1,165 +1,120 @@
-#include "shell.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 
-/**
- * add_node - adds a node to the start of the list
- * @head: address of pointer to head node
- * @str: str field of node
- * @num: node index used by history
- * Return: new_head or NULL on failure
- */
-list_t *add_node(list_t **head, const char *str, int num)
-{
-    if (!head)
-        return NULL;
+#define MAX_PATH_LEN 4096
+#define MAX_COMMANDS 100
 
-    list_t *new_head = malloc(sizeof(list_t));
-    if (!new_head)
-        return NULL;
+void update_pwd() {
+    char cwd[MAX_PATH_LEN];
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        setenv("PWD", cwd, 1);
+    } else {
+        perror("getcwd() error");
+        exit(EXIT_FAILURE);
+    }
+}
 
-    _memset((void *)new_head, 0, sizeof(list_t));
-    new_head->num = num;
+int execute_command(char *command) {
+    int status;
 
-    if (str)
-    {
-        new_head->str = _strdup(str);
-        if (!new_head->str)
-        {
-            free(new_head);
-            return NULL;
+    // Execute the command and get the exit status
+    status = system(command);
+
+    if (WIFEXITED(status)) {
+        // The command exited normally
+        return WEXITSTATUS(status);
+    } else {
+        // The command did not exit normally
+        return -1;
+    }
+}
+
+void execute_logical_commands(char *commands[], int command_count) {
+    int status;
+
+    // Execute each command
+    for (int i = 0; i < command_count; i++) {
+        char *trimmed_command = strtok(commands[i], " \t\n");
+        if (trimmed_command != NULL) {
+            // Execute the trimmed command
+            status = execute_command(trimmed_command);
+
+            // Handle logical operators
+            if (i < command_count - 1) {
+                char *logical_operator = strtok(NULL, " \t\n");
+                if (logical_operator != NULL) {
+                    if (strcmp(logical_operator, "&&") == 0 && status != 0) {
+                        // Skip the next command if the previous one failed
+                        i++;
+                    } else if (strcmp(logical_operator, "||") == 0 && status == 0) {
+                        // Skip the next command if the previous one succeeded
+                        i++;
+                    }
+                }
+            }
+        }
+    }
+}
+
+int main(int argc, char *argv[]) {
+    char *home_dir = getenv("HOME");
+    char *old_pwd = NULL;
+
+    if (argc > 2) {
+        fprintf(stderr, "Usage: %s [COMMAND]\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    if (argc == 1 || strcmp(argv[1], "~") == 0) {
+        if (chdir(home_dir) != 0) {
+            perror("chdir() error");
+            exit(EXIT_FAILURE);
+        }
+    } else if (strcmp(argv[1], "-") == 0) {
+        old_pwd = getenv("OLDPWD");
+        if (old_pwd == NULL) {
+            fprintf(stderr, "cd: OLDPWD not set\n");
+            exit(EXIT_FAILURE);
+        }
+
+        if (chdir(old_pwd) != 0) {
+            perror("chdir() error");
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        if (chdir(argv[1]) != 0) {
+            perror("chdir() error");
+            exit(EXIT_FAILURE);
         }
     }
 
-    new_head->next = *head;
-    *head = new_head;
-    return new_head;
-}
+    update_pwd();
 
-/**
- * add_node_end - adds a node to the end of the list
- * @head: address of pointer to head node
- * @str: str field of node
- * @num: node index used by history
- * Return: new_node or NULL on failure
- */
-list_t *add_node_end(list_t **head, const char *str, int num)
-{
-    if (!head)
-        return NULL;
-
-    list_t *new_node = malloc(sizeof(list_t));
-    if (!new_node)
-        return NULL;
-
-    _memset((void *)new_node, 0, sizeof(list_t));
-    new_node->num = num;
-
-    if (str)
-    {
-        new_node->str = _strdup(str);
-        if (!new_node->str)
-        {
-            free(new_node);
-            return NULL;
-        }
+    if (old_pwd != NULL) {
+        printf("%s\n", old_pwd);
+        free(old_pwd);
     }
 
-    if (*head)
-    {
-        list_t *node = *head;
-        while (node->next)
-            node = node->next;
-        node->next = new_node;
-    }
-    else
-    {
-        *head = new_node;
-    }
+    // Execute commands with logical operators
+    char command[MAX_PATH_LEN];
+    printf("Enter commands with logical operators (&& or ||):\n");
+    fgets(command, sizeof(command), stdin);
 
-    return new_node;
-}
+    char *token;
+    char *commands[MAX_COMMANDS];
+    int command_count = 0;
 
-/**
- * print_list_str - prints only the str element of a list_t linked list
- * @h: pointer to first node
- * Return: size of list
- */
-size_t print_list_str(const list_t *h)
-{
-    size_t i = 0;
-
-    while (h)
-    {
-        _puts(h->str ? h->str : "(nil)");
-        _puts("\n");
-        h = h->next;
-        i++;
+    // Tokenize the command based on semicolons
+    token = strtok(command, ";");
+    while (token != NULL && command_count < MAX_COMMANDS) {
+        commands[command_count++] = token;
+        token = strtok(NULL, ";");
     }
 
-    return i;
-}
-
-/**
- * delete_node_at_index - deletes node at given index
- * @head: address of pointer to first node
- * @index: index of node to delete
- * Return: 1 on success, 0 on failure
- */
-int delete_node_at_index(list_t **head, unsigned int index)
-{
-    if (!head || !*head)
-        return 0;
-
-    if (!index)
-    {
-        list_t *node = *head;
-        *head = (*head)->next;
-        free(node->str);
-        free(node);
-        return 1;
-    }
-
-    list_t *node = *head;
-    list_t *prev_node = NULL;
-    unsigned int i = 0;
-
-    while (node)
-    {
-        if (i == index)
-        {
-            prev_node->next = node->next;
-            free(node->str);
-            free(node);
-            return 1;
-        }
-
-        i++;
-        prev_node = node;
-        node = node->next;
-    }
+    // Execute logical commands
+    execute_logical_commands(commands, command_count);
 
     return 0;
-}
-
-/**
- * free_list - frees all nodes of a list
- * @head_ptr: address of pointer to head node
- * Return: void
- */
-void free_list(list_t **head_ptr)
-{
-    if (!head_ptr || !*head_ptr)
-        return;
-
-    list_t *head = *head_ptr;
-    list_t *node = head;
-
-    while (node)
-    {
-        list_t *next_node = node->next;
-        free(node->str);
-        free(node);
-        node = next_node;
-    }
-
-    *head_ptr = NULL;
 }
